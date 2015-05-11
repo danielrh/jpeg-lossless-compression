@@ -1,0 +1,33 @@
+Direct port from Sirikata's C++ Jpeg<->ARHC library into a standalone tool.
+
+When you compress a jpeg file with a standard tool like bzip or xz or lzma,
+the file size often increases, but certainly does not decrease much.
+
+Sometimes you have a lot of images you want to archive, but you don't wish to
+alter the input source at all.
+
+For those cases, this tool can bring the size of the source file down by 10%.
+
+In some cases you want to make sure the pixels stay exactly the same color
+but that the source file itself may be altered. For that, a tool like
+jpegrescan may be more useful https://github.com/kud/jpegrescan
+
+
+The way this tool operates is that it takes a pass over a jpeg file.
+When it encounters run-length encoded items, it places them in a single,
+difficult-to-compress "bitbuffer" area.
+
+As it finds Huffman Coded components, it simply huffman decodes the items.
+Each item is placed in an array corresponding to its DCT component number and
+color channel index. The arrays are stored in zigzag order towards the beginning
+of the file, one channel at a time.
+
+To reconstitute the original jpeg, the file is read, and the huffman-coded
+items are pulled from the appropriate section in the beginning and re-encoded
+with the original huffman tables.  The bitvector copied to the corresponding
+areas, interspersed with the huffman-coded items.
+
+When the huffman data values are in the decoded form and in a series of arrays
+at the beginning of the file, the jpeg is able to be efficiently compressed
+by standard compression tools. This brings the final file size down ~10% below
+the original and allows the original to be reencoded.
