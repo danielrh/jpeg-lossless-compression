@@ -920,9 +920,9 @@ func (d *decoder) decode(r io.Reader, w io.Writer, componentCoalescing uint8) er
 func Decode(r io.Reader, w io.WriteCloser, componentCoalescing uint8) error {
 	var d decoder
 	err := d.decode(r, w, componentCoalescing)
-    err2 := w.Close()
-    if err == nil {
-        return err2
-    }
-    return err
+	err2 := w.Close()
+	if err == nil {
+		return err2
+	}
+	return err
 }

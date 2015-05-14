@@ -38,81 +38,82 @@
 // Port from Sirikata C++ to golang by Daniel Reiter Horn
 //
 package main
+
 import "bytes"
 import "io"
 import "github.com/danielrh/go-xz"
-var MAGIC_7Z = []byte { 0xFD, '7', 'z', 'X', 'Z', 0x00 };
-var MAGIC_ARHC = []byte { 'A', 'R', 'H', 'C', 0x01, 0x00 };
 
+var MAGIC_7Z = []byte{0xFD, '7', 'z', 'X', 'Z', 0x00}
+var MAGIC_ARHC = []byte{'A', 'R', 'H', 'C', 0x01, 0x00}
 
 func DecodeIs7z(data []byte) bool {
-    minSize := len(data)
-    if len(data) >  len(MAGIC_7Z) {
-        minSize = len(MAGIC_7Z)
-    }
-    return bytes.Equal(data[:minSize], MAGIC_7Z[:minSize])
+	minSize := len(data)
+	if len(data) > len(MAGIC_7Z) {
+		minSize = len(MAGIC_7Z)
+	}
+	return bytes.Equal(data[:minSize], MAGIC_7Z[:minSize])
 }
 func DecodeIsJPEG(data []byte) bool {
-    if len(data) == 1 {
-       return data[0] == 0xff
-    }
-    return len(data) >= 2 && data[0] == 0xff && data[1] == 0xd8;
+	if len(data) == 1 {
+		return data[0] == 0xff
+	}
+	return len(data) >= 2 && data[0] == 0xff && data[1] == 0xd8
 }
 func DecodeIsARHC(data []byte) bool {
-    minSize := len(data)
-    if len(data) > len(MAGIC_ARHC) {
-        minSize = len(MAGIC_ARHC)
-    }
-    return bytes.Equal(data[:minSize], MAGIC_ARHC[:minSize]);
+	minSize := len(data)
+	if len(data) > len(MAGIC_ARHC) {
+		minSize = len(MAGIC_ARHC)
+	}
+	return bytes.Equal(data[:minSize], MAGIC_ARHC[:minSize])
 }
-
 
 // Decode reads a JPEG image from r and returns it as an image.Image.
 func CompressJPEGtoARHC(r io.Reader, w io.Writer, componentCoalescing uint8) error {
-    magic := NewMagicNumberReplacementWriter(&xz.NopCloseWriteWrapper{w}, MAGIC_7Z, MAGIC_ARHC);
-    cw := xz.NewCompressionWriter(&magic);
-    return Decode(r, &cw, componentCoalescing);
+	magic := NewMagicNumberReplacementWriter(&xz.NopCloseWriteWrapper{w}, MAGIC_7Z, MAGIC_ARHC)
+	cw := xz.NewCompressionWriter(&magic)
+	return Decode(r, &cw, componentCoalescing)
 }
 
 // Decode reads a JPEG image from r and returns it as an image.Image.
-func DecompressARHCtoJPEG(r io.Reader, w io.WriteCloser) error {
-    magic := NewMagicNumberReplacementReader(&xz.NopCloseReadWrapper{r}, MAGIC_ARHC, MAGIC_7Z);
-    cr := xz.NewDecompressionReader(&magic);
-    return Decode(&cr, w, 0);
+func DecompressARHCtoJPEG(r io.Reader, w io.Writer) error {
+	magic := NewMagicNumberReplacementReader(&xz.NopCloseReadWrapper{r}, MAGIC_ARHC, MAGIC_7Z)
+	cr := xz.NewDecompressionReader(&magic)
+	return Decode(&cr, &xz.NopCloseWriteWrapper{w}, 0)
 }
 
 func Copy(r io.ReadCloser, w io.WriteCloser) error {
-    var buffer [16384]byte;
-    for {
-        nRead, readErr := r.Read(buffer[:]);
-        if (nRead == 0) {
-            w.Close();
-            return nil;
-        }
-        offset := 0;
-        nWritten, writeErr := w.Write(buffer[offset:nRead])
-        offset += nWritten
-        if writeErr != nil {
-            w.Close();
-            return writeErr
-        }
-        if readErr != nil {
-            w.Close();
-            if (readErr == io.EOF) {
-                return nil
-            }
-            return readErr;
-        }
-    }
+	var buffer [16384]byte
+	for {
+		nRead, readErr := r.Read(buffer[:])
+		if nRead == 0 {
+			w.Close()
+			return nil
+		}
+		offset := 0
+		nWritten, writeErr := w.Write(buffer[offset:nRead])
+		offset += nWritten
+		if writeErr != nil {
+			w.Close()
+			return writeErr
+		}
+		if readErr != nil {
+			w.Close()
+			if readErr == io.EOF {
+				return nil
+			}
+			return readErr
+		}
+	}
 }
 
 // Decode reads a JPEG image from r and returns it as an image.Image.
 func CompressAnyto7Z(r io.Reader, w io.Writer) error {
-    cw := xz.NewCompressionWriter(&xz.NopCloseWriteWrapper{w});
-    return Copy(&xz.NopCloseReadWrapper{r}, &cw);
+	cw := xz.NewCompressionWriter(&xz.NopCloseWriteWrapper{w})
+	return Copy(&xz.NopCloseReadWrapper{r}, &cw)
 }
+
 // Decode reads a JPEG image from r and returns it as an image.Image.
 func Decompress7ZtoAny(r io.Reader, w io.Writer) error {
-    cr := xz.NewDecompressionReader(&xz.NopCloseReadWrapper{r});
-    return Copy(&cr, &xz.NopCloseWriteWrapper{w});
+	cr := xz.NewDecompressionReader(&xz.NopCloseReadWrapper{r})
+	return Copy(&cr, &xz.NopCloseWriteWrapper{w})
 }
